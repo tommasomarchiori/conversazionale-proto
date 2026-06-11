@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Home · prototipo</title>
+<style>
+  :root{
+    --bg: #F1F4F5;            /* fondo schermata (= fondo del logo) */
+    --ink: #1c1c1e;           /* scuro neutro per icone/bottoni */
+    --muted: #8a9296;         /* placeholder / testi tenui */
+    --line: #e4e9eb;          /* bordi tenui */
+    --dissolve: 900ms;        /* durata dissolvenza logo */
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system, system-ui, "SF Pro Text", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    display:flex; flex-direction:column;
+    height:100dvh; overflow:hidden;
+  }
+
+  /* ---- status bar ---- */
+  .status{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 24px 4px; font-size:15px; font-weight:600;
+  }
+  .status .icons{ display:flex; align-items:center; gap:6px; }
+  .grabber{ width:120px; height:5px; border-radius:3px; background:#c9d1d4; margin:6px auto 0; }
+
+  /* ---- top actions ---- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px 0;
+  }
+  .circle-btn{
+    width:48px; height:48px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:#fff; box-shadow:0 2px 10px rgba(20,40,40,.06);
+    border:none; cursor:pointer;
+  }
+  .circle-btn.dark{ background:var(--ink); }
+  .circle-btn.dark svg{ stroke:#fff; }
+
+  /* ---- area centrale col logo / chat ---- */
+  .stage{ flex:1; position:relative; overflow:hidden; }
+
+  /* chat: i messaggi inviati appaiono qui */
+  .chat{
+    position:absolute; inset:0; z-index:2;
+    display:flex; flex-direction:column; justify-content:flex-end; gap:10px;
+    padding:20px 16px; overflow-y:auto; scrollbar-width:none;
+  }
+  .chat::-webkit-scrollbar{ display:none; }
+  .bubble{
+    align-self:flex-end; max-width:76%;
+    background:var(--ink); color:#fff;
+    padding:12px 16px; border-radius:22px 22px 6px 22px;
+    font-size:16px; line-height:1.4; word-wrap:break-word;
+    animation:pop .28s ease;
+  }
+  @keyframes pop{ from{ opacity:0; transform:translateY(8px) scale(.98); } to{ opacity:1; transform:none; } }
+  /* finestra che inquadra il blob (ritaglia il margine grigio del video) */
+  .logo-wrap{
+    position:fixed; z-index:0;
+    top:8%; left:50%; transform:translateX(-50%);
+    width:84%; max-width:360px; aspect-ratio:1/1;
+    overflow:hidden;
+    background:var(--bg);
+    transition:opacity var(--dissolve) ease;
+    pointer-events:none;
+    /* sfuma i bordi del riquadro: il logo diventa un tutt'uno col fondo */
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 48%, transparent 70%);
+            mask-image: radial-gradient(circle at 50% 50%, #000 48%, transparent 70%);
+  }
+  .logo-wrap.dissolve{ opacity:0; }
+  .logo-vid{
+    width:100%; height:100%;
+    object-fit:cover;
+    transform:scale(1.7);   /* zoom sul blob per matchare il mockup */
+    background:var(--bg);
+    display:block;
+  }
+
+  /* ---- chips ---- */
+  .chips{
+    display:flex; gap:12px; padding:0 20px 14px;
+    overflow-x:auto; scrollbar-width:none;
+  }
+  .chips::-webkit-scrollbar{ display:none; }
+  .chip{
+    flex:0 0 auto; display:flex; align-items:center; gap:9px;
+    background:#fff; border:none; border-radius:999px;
+    padding:14px 20px; font-size:15px; font-weight:500; color:var(--ink);
+    box-shadow:0 2px 10px rgba(20,40,40,.06); cursor:pointer; white-space:nowrap;
+  }
+
+  /* ---- input bar ---- */
+  .composer{ padding:0 16px 18px; }
+  .bar{
+    display:flex; align-items:center; gap:10px;
+    background:#fff; border-radius:999px; padding:8px 8px 8px 16px;
+    box-shadow:0 4px 18px rgba(20,40,40,.07);
+  }
+  .bar .plus{ background:none; border:none; cursor:pointer; display:flex; padding:4px; }
+  .bar input{
+    flex:1; border:none; outline:none; font-size:17px; color:var(--ink);
+    background:transparent; padding:8px 0;
+  }
+  .bar input::placeholder{ color:var(--muted); }
+  .icon-pill{
+    width:40px; height:40px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:#eef1f2; cursor:pointer; flex:0 0 auto;
+  }
+  .send{
+    width:44px; height:44px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--ink); cursor:pointer; flex:0 0 auto; border:none;
+  }
+  .send svg{ stroke:#fff; }
+
+  /* ---- tastiera iOS statica (solo estetica, match del frame) ---- */
+  .keyboard{
+    background:#d1d4d9; padding:6px 3px 0; user-select:none;
+    font-family:-apple-system, system-ui, sans-serif; color:#1c1c1e;
+  }
+  .kb-suggest{ display:flex; height:46px; }
+  .kb-suggest > div{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    font-size:17px; position:relative;
+  }
+  .kb-suggest > div + div::before{
+    content:""; position:absolute; left:0; top:12px; bottom:12px;
+    width:1px; background:#b3b6bc;
+  }
+  .kb-row{ display:flex; justify-content:center; gap:6px; padding:0 3px; margin:5px 0; }
+  .kb-row.r2{ padding:0 21px; }
+  .key{
+    flex:1; height:42px; background:#fff; border-radius:5px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:22px; box-shadow:0 1px 0 rgba(0,0,0,.28);
+  }
+  .key.fn{ background:#abb0ba; flex:1.4; }
+  .key.space{ flex:5.4; font-size:16px; color:#1c1c1e; }
+  .key svg{ display:block; }
+  .kb-bottom{ display:flex; align-items:center; justify-content:space-between; padding:4px 16px 2px; }
+  .kb-home{ width:140px; height:5px; border-radius:3px; background:#1c1c1e; margin:6px auto 8px; }
+</style>
+</head>
+<body>
+  <div class="status">
+    <span>10:47</span>
+    <span class="icons">
+      <!-- segnale -->
+      <svg width="18" height="13" viewBox="0 0 18 13" fill="none"><rect x="0" y="9" width="3" height="4" rx="1" fill="#1c1c1e"/><rect x="5" y="6" width="3" height="7" rx="1" fill="#1c1c1e"/><rect x="10" y="3" width="3" height="10" rx="1" fill="#1c1c1e"/><rect x="15" y="0" width="3" height="13" rx="1" fill="#1c1c1e"/></svg>
+      <!-- wifi -->
+      <svg width="18" height="13" viewBox="0 0 18 13" fill="none"><path d="M9 12.2a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2z" fill="#1c1c1e"/><path d="M2.5 5.5a9 9 0 0113 0M5 8a5.5 5.5 0 018 0" stroke="#1c1c1e" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <!-- batteria -->
+      <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="0.6" y="0.6" width="22" height="11.8" rx="3" stroke="#1c1c1e" stroke-opacity=".4"/><rect x="2.2" y="2.2" width="18" height="8.6" rx="1.6" fill="#1c1c1e"/><rect x="24" y="4" width="2" height="5" rx="1" fill="#1c1c1e" fill-opacity=".4"/></svg>
+    </span>
+  </div>
+  <div class="grabber"></div>
+
+  <div class="topbar">
+    <button class="circle-btn" aria-label="App">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="#1c1c1e"><circle cx="4" cy="4" r="2"/><circle cx="11" cy="4" r="2"/><circle cx="18" cy="4" r="2"/><circle cx="4" cy="11" r="2"/><circle cx="11" cy="11" r="2"/><circle cx="18" cy="11" r="2"/><circle cx="4" cy="18" r="2"/><circle cx="11" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+    </button>
+    <button class="circle-btn" aria-label="Nuova chat">
+      <svg width="24" height="24" viewBox="0 0 24 24"><path fill="#1c1c1e" d="M6 4h12a3 3 0 013 3v6a3 3 0 01-3 3h-7l-3.2 2.9A.8.8 0 017 18.2V16H6a3 3 0 01-3-3V7a3 3 0 013-3z"/><path stroke="#fff" stroke-width="2" stroke-linecap="round" d="M11.5 7v6M8.5 10h6"/></svg>
+    </button>
+  </div>
+
+  <div class="stage">
+    <!-- LOGO ANIMATO nella stessa posizione del mockup -->
+    <div class="logo-wrap" id="logo">
+      <video class="logo-vid" id="logo-vid"
+             src="logo-loop.mp4" poster="logo-poster.jpg"
+             autoplay loop muted playsinline preload="auto"></video>
+    </div>
+    <div class="chat" id="chat"></div>
+  </div>
+
+  <div class="chips">
+    <button class="chip"><svg width="19" height="19" viewBox="0 0 24 24" fill="#1c1c1e"><circle cx="12" cy="8" r="4.2"/><path d="M12 14c-4.5 0-8 2.6-8 5.8 0 .7.6 1.2 1.3 1.2h13.4c.7 0 1.3-.5 1.3-1.2 0-3.2-3.5-5.8-8-5.8z"/></svg>Search client</button>
+    <button class="chip"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Product Browse</button>
+    <button class="chip"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.6"/><path d="M5 9v9.5a1 1 0 001 1h12a1 1 0 001-1V9"/><path d="M10 13h4"/></svg>Quick capture</button>
+  </div>
+
+  <div class="composer">
+    <div class="bar">
+      <button class="plus" aria-label="Aggiungi">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <input id="msg" type="text" placeholder="Type here" autocomplete="off">
+      <div class="icon-pill" id="barcode" aria-label="Barcode">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="1.8" stroke-linecap="round"><path d="M4 6v12M7 6v12M10 6v12M13 6v12M16 6v12M19 6v12"/></svg>
+      </div>
+      <button class="send" id="send" aria-label="Invia">
+        <!-- microfono (vuoto) / freccia (con testo) -->
+        <svg id="send-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- TASTIERA iOS statica (solo estetica, come nel frame Figma) -->
+  <div class="keyboard" aria-hidden="true">
+    <div class="kb-suggest"><div>&ldquo;The&rdquo;</div><div>the</div><div>to</div></div>
+    <div class="kb-row"><div class="key">q</div><div class="key">w</div><div class="key">e</div><div class="key">r</div><div class="key">t</div><div class="key">y</div><div class="key">u</div><div class="key">i</div><div class="key">o</div><div class="key">p</div></div>
+    <div class="kb-row r2"><div class="key">a</div><div class="key">s</div><div class="key">d</div><div class="key">f</div><div class="key">g</div><div class="key">h</div><div class="key">j</div><div class="key">k</div><div class="key">l</div></div>
+    <div class="kb-row">
+      <div class="key fn"><svg width="22" height="22" viewBox="0 0 24 24" fill="#1c1c1e"><path d="M12 3.6l7.2 7.2a1 1 0 01-.7 1.7H15.5v5.4a1.3 1.3 0 01-1.3 1.3H9.8a1.3 1.3 0 01-1.3-1.3v-5.4H5.5a1 1 0 01-.7-1.7L12 3.6z"/></svg></div>
+      <div class="key">z</div><div class="key">x</div><div class="key">c</div><div class="key">v</div><div class="key">b</div><div class="key">n</div><div class="key">m</div>
+      <div class="key fn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H8.5a2 2 0 00-1.5.7L2.6 11a1.5 1.5 0 000 2l4.4 5.3a2 2 0 001.5.7H21a1 1 0 001-1V6a1 1 0 00-1-1z"/><path d="M17 9.5l-5 5M12 9.5l5 5"/></svg></div>
+    </div>
+    <div class="kb-row">
+      <div class="key fn" style="flex:1.7;font-size:15px">ABC</div>
+      <div class="key space">space</div>
+      <div class="key fn" style="flex:1.7"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10l-4 4 4 4"/><path d="M5 14h11a4 4 0 004-4V6"/></svg></div>
+    </div>
+    <div class="kb-bottom">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="#1c1c1e" stroke="none"/><circle cx="15" cy="10" r="1" fill="#1c1c1e" stroke="none"/><path d="M8.5 14.5a4 4 0 007 0" stroke-linecap="round"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>
+    </div>
+    <div class="kb-home"></div>
+  </div>
+
+  <script>
+    const logo  = document.getElementById('logo');      // wrapper (riceve la dissolvenza)
+    const video = document.getElementById('logo-vid');  // il video in loop
+    const input = document.getElementById('msg');
+    const send  = document.getElementById('send');
+    const sendIcon = document.getElementById('send-icon');
+
+    const MIC  = '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
+    const ARROW= '<path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>';
+
+    // forza il play (autoplay bloccato su alcuni browser)
+    const tryPlay = () => video.play().catch(()=>{});
+    tryPlay();
+    document.addEventListener('pointerdown', tryPlay, { once:true });
+
+    // l'icona diventa "invia" quando c'è testo
+    input.addEventListener('input', () => {
+      sendIcon.innerHTML = input.value.trim() ? ARROW : MIC;
+    });
+
+    const chat = document.getElementById('chat');
+
+    function sendMessage(){
+      const text = input.value.trim();
+      if(!text) return;                      // a vuoto fa da microfono
+
+      // il messaggio appare in chat
+      const b = document.createElement('div');
+      b.className = 'bubble';
+      b.textContent = text;
+      chat.appendChild(b);
+      chat.scrollTop = chat.scrollHeight;
+
+      // >>> DISSOLVENZA DEL LOGO ALL'INVIO <<<
+      logo.classList.add('dissolve');
+
+      input.value = '';
+      sendIcon.innerHTML = MIC;
+    }
+
+    send.addEventListener('click', sendMessage);
+    input.addEventListener('keydown', e => { if(e.key === 'Enter') sendMessage(); });
+  </script>
+</body>
+</html>

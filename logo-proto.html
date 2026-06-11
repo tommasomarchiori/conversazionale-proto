@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Logo · prototipo</title>
+<style>
+  :root{
+    --bg: #F1F4F5;          /* fondo grigio (resta sempre) */
+    --dissolve: 900ms;      /* durata della dissolvenza */
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    background: var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    -webkit-tap-highlight-color: transparent;
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+
+  /* il logo = il video reale in loop, a tutto schermo.
+     Il fondo grigio del video coincide con il fondo pagina: la dissolvenza
+     in opacità lascia quindi soltanto il grigio, da qualunque stato del loop. */
+  .logo{
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    object-fit: contain;
+    display:block;
+    background: var(--bg);
+    cursor:pointer;
+    transition: opacity var(--dissolve) ease;
+  }
+  .logo.dissolve{ opacity:0; }
+
+  /* hint discreto, sparisce al primo tap */
+  .hint{
+    position:fixed; bottom: 6vh; left:0; right:0;
+    text-align:center; color:#b8c2c6; font-size:13px;
+    letter-spacing:.2px; transition: opacity .4s ease;
+    pointer-events:none;
+  }
+  .hint.gone{ opacity:0; }
+</style>
+</head>
+<body>
+  <video class="logo" id="logo"
+         src="logo-loop.mp4" poster="logo-poster.jpg"
+         autoplay loop muted playsinline preload="auto"></video>
+
+  <p class="hint" id="hint">tap sul logo per la dissolvenza</p>
+
+  <script>
+    const logo = document.getElementById('logo');
+    const hint = document.getElementById('hint');
+
+    // forza il play (alcuni browser bloccano l'autoplay all'apertura file://)
+    const tryPlay = () => logo.play().catch(()=>{});
+    tryPlay();
+    document.addEventListener('pointerdown', tryPlay, { once:true });
+
+    logo.addEventListener('click', () => {
+      if (logo.classList.contains('dissolve')) {
+        // tap di nuovo: ripristina (utile solo per testare il prototipo)
+        logo.classList.remove('dissolve');
+        hint.classList.remove('gone');
+        return;
+      }
+      // dissolvenza dallo stato attuale del loop -> resta il fondo grigio
+      logo.classList.add('dissolve');
+      hint.classList.add('gone');
+    });
+  </script>
+</body>
+</html>
