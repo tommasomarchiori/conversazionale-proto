@@ -84,8 +84,8 @@
     background:var(--bg);
     display:block;
   }
-  /* video di dissolvenza sopra al loop: nascosto finché non si invia */
-  .logo-diss{ opacity:0; }
+  /* video di dissolvenza sopra al loop: sfuma sopra (no scatto) */
+  .logo-diss{ opacity:0; transition:opacity .32s ease; }
   .logo-diss.show{ opacity:1; }
 
   /* ---- chips ---- */
