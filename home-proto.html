@@ -10,7 +10,7 @@
     --ink: #1c1c1e;           /* scuro neutro per icone/bottoni */
     --muted: #8a9296;         /* placeholder / testi tenui */
     --line: #e4e9eb;          /* bordi tenui */
-    --dissolve: 750ms;        /* durata dissolvenza logo */
+    --dissolve: 1100ms;       /* durata dissolvenza logo */
   }
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{ height:100%; }
@@ -69,15 +69,11 @@
     width:84%; max-width:360px; aspect-ratio:1/1;
     overflow:hidden;
     background:var(--bg);
-    transition:opacity var(--dissolve) cubic-bezier(.4,0,.6,1);
     pointer-events:none;
     /* sfuma i bordi del riquadro: il logo diventa un tutt'uno col fondo */
     -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 48%, transparent 70%);
             mask-image: radial-gradient(circle at 50% 50%, #000 48%, transparent 70%);
   }
-  /* DISSOLVENZA: il loop reale (che continua a ruotare) sfuma e si scioglie nel
-     fondo, da qualsiasi rotazione si trovi -> nessuno stacco */
-  .logo-wrap.dissolve{ opacity:0; }
   .logo-vid{
     position:absolute; inset:0;
     width:100%; height:100%;
@@ -85,10 +81,17 @@
     transform:scale(1.7);   /* zoom sul blob per matchare il mockup */
     background:var(--bg);
     display:block;
-    transition:transform var(--dissolve) ease-out, filter var(--dissolve) ease-out;
   }
-  /* leggero "melt" morbido mentre svanisce, come nel render */
-  .logo-wrap.dissolve .logo-vid{ transform:scale(1.78); filter:blur(6px); }
+  /* DISSOLVENZA dal vivo, da qualsiasi rotazione (nessuno stacco):
+     i due cerchi si avvicinano (contrazione) e si fondono in un unico disco
+     (blur crescente), poi il disco si dissolve nel fondo. */
+  @keyframes meltAway{
+    0%   { opacity:1; filter:blur(0px);  transform:scale(1.70); }
+    45%  { opacity:1; filter:blur(19px); transform:scale(1.52); }
+    70%  { opacity:.85; filter:blur(24px); transform:scale(1.46); }
+    100% { opacity:0; filter:blur(34px); transform:scale(1.40); }
+  }
+  .logo-wrap.dissolve .logo-vid{ animation:meltAway var(--dissolve) ease-out forwards; }
 
   /* ---- chips ---- */
   .chips{
