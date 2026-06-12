@@ -82,8 +82,9 @@
     background:var(--bg);
     display:block;
   }
-  /* la dissolvenza vera la fa il VIDEO stesso (fusione + dissolvenza renderizzata);
-     a fine clip svaniamo il riquadro per un finale pulito sul fondo */
+  /* il video di dissolvenza sta sopra al loop, invisibile finche' non si invia */
+  #diss-vid{ opacity:0; transition:opacity 60ms linear; }
+  /* a fine dissolvenza svaniamo il riquadro per un finale pulito sul fondo */
   .logo-wrap.cleared{ opacity:0; transition:opacity 320ms ease; }
 
   /* ---- chips ---- */
@@ -178,9 +179,14 @@
   <div class="stage">
     <!-- LOGO ANIMATO nella stessa posizione del mockup -->
     <div class="logo-wrap" id="logo">
+      <!-- ORBITA in loop nativo (file seamless) -->
       <video class="logo-vid" id="logo-vid"
-             src="logo.mp4" poster="logo-poster.jpg"
-             autoplay muted playsinline preload="auto"></video>
+             src="loop.mp4" poster="logo-poster.jpg"
+             autoplay loop muted playsinline preload="auto"></video>
+      <!-- DISSOLVENZA (render reale), parte dal frame che combacia col loop -->
+      <video class="logo-vid" id="diss-vid"
+             src="dissolve.mp4"
+             muted playsinline preload="auto"></video>
     </div>
     <div class="chat" id="chat"></div>
   </div>
@@ -231,20 +237,20 @@
 
   <script>
     const logo  = document.getElementById('logo');      // wrapper
-    const video = document.getElementById('logo-vid');  // la render completa (orbita + fusione + dissolvenza)
+    const video = document.getElementById('logo-vid');  // ORBITA in loop nativo (file seamless)
+    const diss  = document.getElementById('diss-vid');  // DISSOLVENZA (render reale)
 
-    /* La render e' UN solo video continuo:
-       - orbita pulita dei due cerchi:           0.0s .. ~4.8s  (periodo esatto = 4.0s)
-       - fusione dei due cerchi + dissolvenza:   ~4.9s .. ~5.7s
-       - fondo grigio:                           da ~5.8s
-       In home cicliamo SOLO l'orbita [0.8s, 4.8s] (loop perfetto perche' il periodo
-       e' 4.0s). All'invio lasciamo proseguire lo STESSO video dritto nella fusione
-       reale: nessun cambio di sorgente, parte dalla rotazione corrente -> zero stacco. */
-    const ORBIT_A = 0.80;   // inizio segmento d'orbita ciclato
-    const ORBIT_B = 4.80;   // fine: subito prima che i cerchi inizino a fondersi
-    const GREY_AT = 5.90;   // qui il logo e' dissolto: congeliamo sul grigio
-    const RUSH_MAX = 3;     // accelerazione max per raggiungere la fusione (snappy)
-    let dissolving = false;
+    /* Loop e dissolvenza vengono dallo stesso comp: l'orbita gira in loop nativo
+       (rock-solid, niente seek) e il clip di dissolvenza parte ESATTAMENTE dal
+       frame in cui l'orbita si trova nei punti MATCH. Allo switch i frame
+       coincidono -> nessuno stacco, da qualsiasi rotazione.
+       loop.mp4 dura 8s; i frame che combaciano con l'inizio di dissolve.mp4
+       sono a 2.5s e 4.5s. */
+    const MATCH    = [2.5, 4.5];  // istanti del loop dove il frame == inizio dissolvenza
+    const LOOP_LEN = 8.0;
+    const RUSH_T   = 0.6;         // tempo target per raggiungere il punto di switch
+    const RUSH_MAX = 3;           // accelerazione massima dell'orbita
+    let dissolving = false, swapped = false;
 
     const input = document.getElementById('msg');
     const send  = document.getElementById('send');
@@ -255,27 +261,16 @@
 
     // forza il play (autoplay bloccato su alcuni browser)
     const tryPlay = () => video.play().catch(()=>{});
-    video.addEventListener('loadedmetadata', () => { if(video.currentTime < ORBIT_A) video.currentTime = ORBIT_A; });
     tryPlay();
     document.addEventListener('pointerdown', tryPlay, { once:true });
+    diss.load();   // tieni pronta la dissolvenza per lo switch istantaneo
 
-    // ciclo dell'orbita + prosecuzione nella dissolvenza reale all'invio.
-    // requestAnimationFrame (preciso al frame) evita di mostrare un lampo di fusione
-    // quando si ricicla l'orbita.
-    function tick(){
-      if(!dissolving){
-        if(video.currentTime >= ORBIT_B) video.currentTime -= (ORBIT_B - ORBIT_A);  // loop perfetto (periodo 4.0s)
-      } else {
-        if(video.currentTime >= ORBIT_B && video.playbackRate !== 1) video.playbackRate = 1;  // la fusione a velocita' naturale
-        if(video.currentTime >= GREY_AT){           // dissolto: congela sul grigio e pulisci il riquadro
-          video.pause();
-          logo.classList.add('cleared');
-          return;                                   // fine: stop del ticker
-        }
-      }
-      requestAnimationFrame(tick);
+    // distanza (in secondi) dall'istante t al prossimo punto di match
+    function distToMatch(t){
+      let best = LOOP_LEN;
+      for(const m of MATCH){ const d = ((m - t) % LOOP_LEN + LOOP_LEN) % LOOP_LEN; if(d < best) best = d; }
+      return best;
     }
-    requestAnimationFrame(tick);
 
     // l'icona diventa "invia" quando c'è testo
     input.addEventListener('input', () => {
@@ -302,15 +297,46 @@
       sendIcon.innerHTML = MIC;
     }
 
+    let prevT = null;
     function startDissolve(){
       if(dissolving) return;
       dissolving = true;
-      // smetti di ciclare l'orbita: il video prosegue da solo nella fusione+dissolvenza.
-      // per non far aspettare, acceleriamo l'orbita fino al punto di fusione, poi
-      // la fusione gioca a velocita' naturale (vedi handler timeupdate).
-      const remaining = ORBIT_B - video.currentTime;        // quanto manca alla fusione
-      video.playbackRate = Math.min(RUSH_MAX, Math.max(1, remaining / 0.7));
-      tryPlay();
+      // accelera l'orbita per arrivare in fretta al prossimo frame di match,
+      // poi al match passa al clip di dissolvenza (frame identico -> niente stacco).
+      const dist = distToMatch(video.currentTime);
+      video.playbackRate = Math.min(RUSH_MAX, Math.max(1, dist / RUSH_T));
+      prevT = video.currentTime;
+      requestAnimationFrame(watchSwap);
+    }
+
+    // ha attraversato l'istante m muovendosi da a a b sul loop (lunghezza LOOP_LEN)?
+    function crossed(a, b, m){
+      return (b >= a) ? (m > a && m <= b) : (m > a || m <= b);   // gestisce il wrap a fine loop
+    }
+
+    function watchSwap(){
+      if(swapped) return;
+      const t = video.currentTime;
+      if(prevT !== null){
+        for(const m of MATCH){
+          if(crossed(prevT, t, m)){ doSwap(m, t); return; }   // robusto a qualsiasi frame-rate
+        }
+      }
+      prevT = t;
+      requestAnimationFrame(watchSwap);
+    }
+
+    function doSwap(m, t){
+      swapped = true;
+      // di quanto abbiamo superato il match: allineo la dissolvenza cosi' il frame
+      // coincide esattamente, qualunque sia il passo del frame-rate -> niente stacco
+      const over = Math.min(((t - m) % LOOP_LEN + LOOP_LEN) % LOOP_LEN, 0.2);
+      diss.currentTime = over;
+      diss.style.opacity = '1';     // copre il loop con la dissolvenza (frame coincidente)
+      diss.play().catch(()=>{});
+      video.pause();
+      // a fine dissolvenza il logo e' sul grigio: puliamo il riquadro
+      diss.addEventListener('ended', () => logo.classList.add('cleared'), { once:true });
     }
 
     send.addEventListener('click', sendMessage);
